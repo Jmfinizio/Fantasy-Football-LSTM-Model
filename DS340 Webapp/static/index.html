@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Football Player Projection</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        #loading {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fantasy Football Player LSTM Projection</h1>
+    
+    <!-- Form for player name input -->
+    <form id="projection-form">
+        <div class="input-group">
+            <label for="player_name">Player Name:</label>
+            <input type="text" id="player_name" name="player_name" required>
+        </div>
+        <button type="submit">Get Projection</button>
+    </form>
+    
+    <!-- Loading animation -->
+    <div id="loading" style="display: none;">Preparing prediction<span id="dots">...</span></div>
+    
+    <!-- Results Section -->
+    <div id="results" style="display: none;">
+        <h2>Results</h2>
+        <!-- Placeholder for the message -->
+        <p id="message"></p>
+        <!-- Placeholder for the graph -->
+        <h3>MSE Graph</h3>
+        <img id="mse_graph" src="" style="display: none; max-width: 100%;">
+    
+        <h3>MAE Graph</h3>
+        <img id="mae_graph" src="" style="display: none; max-width: 100%;">
+    </div>
+    
+    <!-- Inline JavaScript -->
+    <script>
+        const form = document.getElementById("projection-form");
+        const loading = document.getElementById("loading");
+        const dots = document.getElementById("dots");
+        const results = document.getElementById("results");
+        const message = document.getElementById("message");
+        const mseGraph = document.getElementById("mse_graph");
+        const maeGraph = document.getElementById("mae_graph");
+
+        let interval;
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault(); // Prevent form submission
+            const playerName = document.getElementById("player_name").value;
+
+            // Clear previous results
+            results.style.display = "none";
+            message.textContent = "";
+            mseGraph.src = "";
+            maeGraph.src = "";
+            mseGraph.style.display = "none";
+            maeGraph.style.display = "none";
+
+            // Show loading animation
+            loading.style.display = "block";
+            let dotCount = 0;
+            interval = setInterval(() => {
+                dotCount = (dotCount + 1) % 4; // Cycle through 0 to 3 dots
+                dots.textContent = ".".repeat(dotCount);
+            }, 500);
+
+            // Send POST request
+            fetch("/player_projection", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ player_name: playerName })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || "An error occurred");
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Show results
+                    clearInterval(interval);
+                    loading.style.display = "none";
+
+                    results.style.display = "block";
+                    message.textContent = data.message;
+                    if (data.mse_graph_url) {
+                        mseGraph.src = data.mse_graph_url;
+                        mseGraph.style.display = "block";
+                    }
+                    if (data.mae_graph_url) {
+                        maeGraph.src = data.mae_graph_url;
+                        maeGraph.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    // Show error
+                    clearInterval(interval);
+                    loading.style.display = "none";
+
+                    results.style.display = "block";
+                    message.textContent = `Error: ${error.message}`;
+                });
+        });
+    </script>
+</body>
+</html>
